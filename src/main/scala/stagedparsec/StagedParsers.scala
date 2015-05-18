@@ -22,6 +22,37 @@ trait StagedParsers
     with ListOps {
 
 
+  case class SeqParser[T: Manifest, U: Manifest](p: Parser[T], q: Parser[U]) extends Parser[(T, U)] {
+    def proj(i: Int) = ???
+    def apply(in: Rep[Input]) = {
+      val x = p(in)
+      if (x.isEmpty) Failure[(T, U)](in)
+      else {
+        val y = q(x.next)
+        if (y.isEmpty) Failure[(T, U)](x.next)
+        else Success(make_tuple2(x.get, y.get), y.next)
+      }
+    }
+  }
+
+  /**
+   * Case class for the repetition of a parser
+   * Used for optimization: filter results on the fly
+   */
+  case class RepParser[T: Manifest](p: Parser[T]) extends Parser[List[T]] {
+    def apply(in: Rep[Input]) = repFold(p)(List[T]().asInstanceOf[Rep[List[T]]], { (ls: Rep[List[T]], t: Rep[T]) => ls ++ List(t) }).apply(in)
+    def filter(f: Rep[T] => Rep[Boolean]): Parser[List[T]] = repFold(p)(List[T]().asInstanceOf[Rep[List[T]]], (x: Rep[List[T]], y: Rep[T]) => if(f(y)) x ++ List(y) else x)
+  }
+
+  /**
+   * Case class for interleaved repetitions
+   * Also used for optimization
+   */
+  case class RepSepParser[T: Manifest, U: Manifest](p: Parser[T], q: Parser[U]) extends Parser[List[T]] {
+    def apply(in: Rep[Input]) = ((p ~ rep(q ~> p)) ^^ { x => x._1 :: x._2 } | success(List[T]())).apply(in)
+    def filter(f: Rep[T] => Rep[Boolean]): Parser[List[T]] = (p ~ rep(q ~> p).filter(f)) ^^ { x => if(f(x._1)) x._1 :: x._2 else x._2 } | success(List[T]())
+  }
+
   abstract class Parser[T: Manifest]
       extends (Rep[Input] => Rep[ParseResult[T]]) {
 
@@ -44,15 +75,7 @@ trait StagedParsers
      * implementing with `flatMap` produces worse code
      * TODO: check the reason
      */
-    def ~[U: Manifest](that: Parser[U]) = Parser[(T, U)] { input =>
-      val x = this(input)
-      if (x.isEmpty) Failure[(T, U)](input)
-      else {
-        val y = that(x.next)
-        if (y.isEmpty) Failure[(T, U)](input)
-        else Success(make_tuple2(x.get, y.get), y.next)
-      }
-    }
+    def ~[U: Manifest](that: Parser[U]) = SeqParser(this, that)
 
     /**
      * get right hand side result
@@ -116,9 +139,9 @@ trait StagedParsers
       readVar(s)
     }
 
-    def rep[T: Manifest](p: => Parser[T]) = repFold(p)(List[T]().asInstanceOf[Rep[List[T]]], { (ls: Rep[List[T]], t: Rep[T]) => ls ++ List(t) })
+    def rep[T: Manifest](p: => Parser[T]) = RepParser(p)
 
-    def repSep[T: Manifest, U: Manifest](p: => Parser[T], q: => Parser[U]) = (p ~ rep(q ~> p)) ^^ { x => x._1 :: x._2 } | success(List[T]())
+    def repSep[T: Manifest, U: Manifest](p: => Parser[T], q: => Parser[U]) = RepSepParser(p, q)
 
     def success[T:Manifest](v:Rep[T]) = new Parser[T] {
       def apply(in: Rep[Input]) = Success(v, in)
