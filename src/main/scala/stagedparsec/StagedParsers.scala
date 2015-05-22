@@ -24,15 +24,7 @@ trait StagedParsers
 
   case class SeqParser[T: Manifest, U: Manifest](p: Parser[T], q: Parser[U]) extends Parser[(T, U)] {
     def proj(i: Int) = ???
-    def apply(in: Rep[Input]) = {
-      val x = p(in)
-      if (x.isEmpty) Failure[(T, U)](in)
-      else {
-        val y = q(x.next)
-        if (y.isEmpty) Failure[(T, U)](x.next)
-        else Success(make_tuple2(x.get, y.get), y.next)
-      }
-    }
+    def apply(in: Rep[Input]) = (for (l <- p; r <- q) yield make_tuple2(l, r)).apply(in)
   }
 
   /**
@@ -59,7 +51,7 @@ trait StagedParsers
     /**
      * The flatMap operation
      */
-    private def flatMap[U: Manifest](f: Rep[T] => Parser[U]) = Parser[U] { input =>
+    def flatMap[U: Manifest](f: Rep[T] => Parser[U]) = Parser[U] { input =>
       val tmp = this(input)
       if (tmp.isEmpty) Failure[U](input)
       else {
@@ -73,8 +65,7 @@ trait StagedParsers
     /**
      * The concat operation
      */
-    def ~[U: Manifest](that: Parser[U]): Parser[(T, U)] =
-      for (l <- this; r <- that) yield make_tuple2(l, r)
+    def ~[U: Manifest](that: Parser[U]): Parser[(T, U)] = SeqParser(this, that)
 
     /**
      * get right hand side result
