@@ -108,12 +108,12 @@ trait CharParsersProg extends CharParsers with Equal {
     phrase(parser, StringReader(in))
   }
 
-  /*
+  
   //or
   def test9(in: Rep[Array[Char]]): Rep[Option[Char]] = {
     val parser = letter | digit
     phrase(parser, StringReader(in))
-  }
+  }/*
 
   //or2: testing that or creates functions
   def testOr2(in: Rep[Array[Char]]): Rep[Option[(Char, Char)]] = {
@@ -167,6 +167,10 @@ trait CharParsersProg extends CharParsers with Equal {
   }
 
   */
+  def testRepFilter(in: Rep[Array[Char]]): Rep[Option[String]] = {
+    val parser = rep(letter).filter(x => x == 'a') ^^ { x: Rep[List[Char]] => x.mkString }
+    phrase(parser, StringReader(in))
+  }
 }
 
 class CharParsersSuite extends FileDiffSuite {
@@ -271,7 +275,7 @@ class CharParsersSuite extends FileDiffSuite {
 
 
 
-/*
+
         codegen.emitSource(test9 _, "test9", new java.io.PrintWriter(System.out))
         codegen.reset
 
@@ -281,7 +285,7 @@ class CharParsersSuite extends FileDiffSuite {
         scala.Console.println(testc9(":".toArray))
         codegen.reset
 
-        codegen.emitSource(testOr2 _, "testOr2", new java.io.PrintWriter(System.out))
+        /*codegen.emitSource(testOr2 _, "testOr2", new java.io.PrintWriter(System.out))
         codegen.emitDataStructures(new java.io.PrintWriter(System.out))
         codegen.reset
 
@@ -345,6 +349,13 @@ class CharParsersSuite extends FileDiffSuite {
         scala.Console.println(testcBind("ca".toArray)) //fail
         codegen.reset
 */
+
+        codegen.emitSource(testRepFilter _, "testRepFilter", new java.io.PrintWriter(System.out))
+        codegen.reset
+
+        val testcRepFilter = compile(testRepFilter)
+        scala.Console.println(testcRepFilter("ab".toArray))
+        codegen.reset
       }
       assertFileEqualsCheck(prefix + "char-parser")
     }

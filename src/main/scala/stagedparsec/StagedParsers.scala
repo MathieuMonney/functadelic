@@ -42,7 +42,7 @@ trait StagedParsers
    */
   case class RepSepParser[T: Manifest, U: Manifest](p: Parser[T], q: Parser[U]) extends Parser[List[T]] {
     def apply(in: Rep[Input]) = ((p ~ rep(q ~> p)) ^^ { x => x._1 :: x._2 } | success(List[T]())).apply(in)
-    def filter(f: Rep[T] => Rep[Boolean]): Parser[List[T]] = (p ~ rep(q ~> p).filter(f)) ^^ { x => if(f(x._1)) x._1 :: x._2 else x._2 } | success(List[T]())
+    def filter(f: Rep[T] => Rep[Boolean]): Parser[List[T]] = (p ~ rep(q ~> p).filter(f)) ^^ { x => if(f(x._1)) x._1 :: x._2 else x._2 }// | success(List[T]())
   }
 
   abstract class Parser[T: Manifest]
@@ -79,16 +79,6 @@ trait StagedParsers
     def <~[U: Manifest](that: => Parser[U]): Parser[T] =
       for (l <- this; r <- that) yield l
 
-    /* = Parser[T] { input =>
-      val x = this(input)
-
-      if (x.isEmpty) x
-      else {
-        val y = that(x.next)
-        if (y.isEmpty) Failure[T](input) else Success(x.get, y.next)
-      }
-    }*/
-
     /**
      * The map operation
      */
@@ -99,14 +89,22 @@ trait StagedParsers
     /**
      * The alternat operation
      */
-     // TODO: wrap this in a function so it is not inlined
-    def |[U >: T: Manifest](that: Parser[U]) = Parser[U]{ in =>
-      val x = this(in)
-      if(x.isEmpty) that(in) else x.asInstanceOf[Rep[ParseResult[U]]]
+    def |[U >: T: Manifest](that: Parser[U]) = {
+      val p = Parser[U]{ in =>
+        val tmpSelf = topLevel(this)
+        val x = tmpSelf(in)
+        if(x.isEmpty) that(in) else x.asInstanceOf[Rep[ParseResult[U]]]
+      }
+      topLevel(p)
     }
 
     def ^^[U: Manifest](f: Rep[T] => Rep[U]) = this.map(f)
     def ^^^[U: Manifest](u: Rep[U]) = this.map(x => u)
+  }
+
+  def topLevel[T: Manifest](p: Parser[T]): Parser[T] = {
+    val f = doLambda { p }
+    Parser[T] { i => f(i) }
   }
 
   def repFold[T: Manifest, U: Manifest](p: => Parser[T])(z: Rep[U], f: (Rep[U], Rep[T]) => Rep[U]) = Parser[U] { in =>
@@ -133,6 +131,12 @@ trait StagedParsers
     def rep[T: Manifest](p: => Parser[T]) = RepParser(p)
 
     def repSep[T: Manifest, U: Manifest](p: => Parser[T], q: => Parser[U]) = RepSepParser(p, q)
+
+    def opt[T: Manifest](p: Parser[T]) = Parser[Option[T]] { in =>
+      val x = p(in)
+      if (x.isEmpty) Success(none[T](), x.next)
+      else Success(Some(x.get), x.next)
+   }
 
     def success[T:Manifest](v:Rep[T]) = new Parser[T] {
       def apply(in: Rep[Input]) = Success(v, in)
