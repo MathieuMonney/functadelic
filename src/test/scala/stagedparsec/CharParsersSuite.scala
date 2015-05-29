@@ -276,7 +276,7 @@ class CharParsersSuite extends FileDiffSuite {
 
 
 
-        codegen.emitSource(test9 _, "test9", new java.io.PrintWriter(System.out))
+        /*codegen.emitSource(test9 _, "test9", new java.io.PrintWriter(System.out))
         codegen.reset
 
         val testc9 = compile(test9)
@@ -285,7 +285,7 @@ class CharParsersSuite extends FileDiffSuite {
         scala.Console.println(testc9(":".toArray))
         codegen.reset
 
-        /*codegen.emitSource(testOr2 _, "testOr2", new java.io.PrintWriter(System.out))
+        codegen.emitSource(testOr2 _, "testOr2", new java.io.PrintWriter(System.out))
         codegen.emitDataStructures(new java.io.PrintWriter(System.out))
         codegen.reset
 
@@ -348,14 +348,14 @@ class CharParsersSuite extends FileDiffSuite {
         scala.Console.println(testcBind("cd".toArray)) //successful
         scala.Console.println(testcBind("ca".toArray)) //fail
         codegen.reset
-*/
+
 
         codegen.emitSource(testRepFilter _, "testRepFilter", new java.io.PrintWriter(System.out))
         codegen.reset
 
         val testcRepFilter = compile(testRepFilter)
         scala.Console.println(testcRepFilter("ab".toArray))
-        codegen.reset
+        codegen.reset*/
       }
       assertFileEqualsCheck(prefix + "char-parser")
     }
