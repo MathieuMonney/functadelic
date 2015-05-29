@@ -19,7 +19,8 @@ trait StagedParsers
     with Functions
     with LiftVariables
     with While
-    with ListOps {
+    with ListOps 
+    with BarrierOps {
 
 
   case class SeqParser[T: Manifest, U: Manifest](p: Parser[T], q: Parser[U]) extends Parser[(T, U)] {
@@ -109,7 +110,10 @@ trait StagedParsers
 
   def repFold[T: Manifest, U: Manifest](p: => Parser[T])(z: Rep[U], f: (Rep[U], Rep[T]) => Rep[U]) = Parser[U] { in =>
 
-      var s = Success[U](z, in)
+      barrierSync("TODO: Hack!")
+
+      val tmp: Rep[ParseResult[U]] = Success[U](z, in)
+      var s = tmp
 
       var old = unit(-1)
       var continue = unit(true)
@@ -130,7 +134,7 @@ trait StagedParsers
 
     def rep[T: Manifest](p: => Parser[T]) = RepParser(p)
 
-    def repSep[T: Manifest, U: Manifest](p: => Parser[T], q: => Parser[U]) = RepSepParser(p, q)
+    def repsep[T: Manifest, U: Manifest](p: => Parser[T], q: => Parser[U]) = RepSepParser(p, q)
 
     def opt[T: Manifest](p: Parser[T]) = Parser[Option[T]] { in =>
       val x = p(in)
@@ -183,6 +187,7 @@ trait StagedParsersExp
     with VariablesExp
     with WhileExp
     with ListOpsExp
+    with BarrierOpsExp
 
 
 trait ScalaGenStagedParsers
@@ -195,6 +200,7 @@ trait ScalaGenStagedParsers
     with ScalaGenFunctions 
     with ScalaGenVariables
     with ScalaGenWhile
-    with ScalaGenListOps {
+    with ScalaGenListOps
+    with ScalaGenBarrierOps {
   val IR: StagedParsersExp
 }
